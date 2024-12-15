@@ -1,21 +1,20 @@
 package com.sakin.todolist
 
 import android.app.AlertDialog
+import android.graphics.Paint
 import android.os.Bundle
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.EditText
-import android.widget.ListView
-import android.widget.Toast
+import android.view.View
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
-    lateinit var item: EditText
-    lateinit var add: Button
-    lateinit var listView: ListView
 
-    var itemList = ArrayList<String>()
-    val fileHelper = FileHelper()
+    private lateinit var item: EditText
+    private lateinit var add: Button
+    private lateinit var listView: ListView
+
+    private var itemList = ArrayList<Task>()
+    private val fileHelper = FileHelper()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,45 +25,69 @@ class MainActivity : AppCompatActivity() {
         add = findViewById(R.id.add)
         listView = findViewById(R.id.listview)
 
-        // Read existing data from file
+        // Load existing tasks from file
         itemList = fileHelper.readData(this)
 
-        // Set up ArrayAdapter
-        val arrayAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, itemList)
+        // Set up ArrayAdapter for the ListView
+        val arrayAdapter = object : ArrayAdapter<Task>(this, android.R.layout.simple_list_item_1, itemList) {
+            override fun getView(position: Int, convertView: View?, parent: android.view.ViewGroup): View {
+                val view = super.getView(position, convertView, parent)
+                val task = getItem(position)
+
+                val textView = view.findViewById<TextView>(android.R.id.text1)
+
+                // Add numbering to tasks
+                textView.text = "${position + 1}. ${task?.name}"
+
+                // Strike-through for completed tasks
+                if (task?.isCompleted == true) {
+                    textView.paintFlags = textView.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+                } else {
+                    textView.paintFlags = textView.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
+                }
+
+                return view
+            }
+        }
         listView.adapter = arrayAdapter
 
-        // Add item to the list
+        // Add new task to the list
         add.setOnClickListener {
             val itemName = item.text.toString()
             if (itemName.isNotBlank()) {
-                itemList.add(itemName)
-                item.setText("") // Clear input field
+                val newTask = Task(itemName, false) // New task starts as incomplete
+                itemList.add(newTask)
+                item.setText("") // Clear the input field
                 fileHelper.writeData(itemList, applicationContext) // Save to file
-                arrayAdapter.notifyDataSetChanged() // Update list view
+                arrayAdapter.notifyDataSetChanged() // Refresh the list
             } else {
                 Toast.makeText(this, "Please enter a task.", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Handle item click to delete
+        // Toggle task completion on click
         listView.setOnItemClickListener { parent, _, position, _ ->
-            val clickedItem = parent.getItemAtPosition(position) as String
+            val clickedTask = parent.getItemAtPosition(position) as Task
+            clickedTask.isCompleted = !clickedTask.isCompleted // Toggle completion state
+            fileHelper.writeData(itemList, applicationContext) // Save updated list
+            arrayAdapter.notifyDataSetChanged() // Refresh the list
+        }
 
-            // Create and show AlertDialog
+        // Delete a task on long click
+        listView.setOnItemLongClickListener { parent, _, position, _ ->
+            val clickedTask = parent.getItemAtPosition(position) as Task
             AlertDialog.Builder(this)
-                .setTitle("Delete")
-                .setMessage("Do you want to delete this item from the list?")
-                .setCancelable(false)
+                .setTitle("Delete Task")
+                .setMessage("Are you sure you want to delete this task?")
                 .setPositiveButton("Yes") { dialog, _ ->
-                    itemList.removeAt(position)
-                    arrayAdapter.notifyDataSetChanged() // Update the list view
-                    fileHelper.writeData(itemList, applicationContext) // Save updated data
-                    Toast.makeText(this, "$clickedItem deleted", Toast.LENGTH_SHORT).show()
+                    itemList.removeAt(position) // Remove the task
+                    fileHelper.writeData(itemList, applicationContext) // Save updated list
+                    arrayAdapter.notifyDataSetChanged() // Refresh the list
+                    Toast.makeText(this, "${clickedTask.name} deleted", Toast.LENGTH_SHORT).show()
                 }
-                .setNegativeButton("No") { dialog, _ ->
-                    dialog.dismiss() // Dismiss dialog
-                }
+                .setNegativeButton("No") { dialog, _ -> dialog.dismiss() }
                 .show()
+            true
         }
     }
 }

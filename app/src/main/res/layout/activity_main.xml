@@ -48,8 +48,10 @@
             android:layout_gravity="center_vertical"
             android:padding="10dp"
             />
-
     </LinearLayout>
+
+    <!-- Spinner for Priority -->
+
 
     <!-- ListView Section -->
     <ListView
@@ -62,5 +64,4 @@
         android:dividerHeight="1dp"
         android:background="#FFFFFF"
         android:padding="10dp"/>
-
 </LinearLayout>
